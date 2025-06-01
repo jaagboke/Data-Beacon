@@ -1,5 +1,3 @@
-# file: streamlit_app.py
-
 import os
 import tempfile
 
@@ -151,5 +149,3 @@ def cleanup_tempfile(path):
     except Exception:
         pass
 
-# st.experimental_rerun()  # ensures cleanup runs when the session ends
-# st.on_event("shutdown", lambda: cleanup_tempfile(tmp_path))
