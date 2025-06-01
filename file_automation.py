@@ -86,16 +86,16 @@ def format_top_values(top_values):
     lines = []
     if not top_values:
         return "  (no categorical columns detected)\n"
-    for col, vals in top_values.items():
+    for col, values in top_values.items():
         lines.append(f"{col}:")
-        if not vals:
+        if not values:
             lines.append("    (no non-null values detected)")
         else:
-            for val, cnt in vals:
-                vstr = str(val)
-                if len(vstr) > 30:
-                    vstr = vstr[:27] + "..."
-                lines.append(f"    {vstr:<30} {cnt:>10,}")
+            for val, cnt in values:
+                value_str = str(val)
+                if len(value_str) > 30:
+                    value_str = value_str[:27] + "..."
+                lines.append(f"    {value_str:<30} {cnt:>10,}")
         lines.append("")  # blank line after each column
     return "\n".join(lines)
 
@@ -259,23 +259,31 @@ def main():
     parser = argparse.ArgumentParser(
         description="Inspect a large CSV file (schema, row count, nulls, basic stats)."
     )
+
+    #Specify the file argument
     parser.add_argument("file", help="Path to CSV file to inspect")
+    #select a preview to show the number of rows to display
     parser.add_argument(
         "--preview", "-p", type=int, default=0,
         help="Show first N rows (in addition to stats)."
     )
+    #Specify a specific column
     parser.add_argument(
         "--column", "-c", metavar="COLNAME", default=None,
         help="If specified, show only stats for that column."
     )
+    #Use no-scan to skip the chunked data and only print the schema & row count
     parser.add_argument(
         "--no-scan", dest="no_scan", action="store_true",
         help="Skip the chunked scan (will only print schema & row count)."
     )
+    #Show top x value for the specified column
     parser.add_argument("--topN", type=int, default=5, help="Show top x value for the specified column")
     args = parser.parse_args()
 
+    #Initialise the csv path
     csv_path = args.file
+    #Check if the file is not found
     if not os.path.isfile(csv_path):
         print(f"Error: file not found: {csv_path}", file=sys.stderr)
         sys.exit(1)
@@ -309,7 +317,7 @@ def main():
     print("Scanning in chunks to compute nulls & stats (may take a while)...")
     null_counts, numeric_summary, top_values = scan_chunks(csv_path, schema, top_k=args.topN)
 
-    # 6) If user asked for a single column
+    # 6) If user specified a single column
     if args.column:
         col = args.column
         if col not in schema:
@@ -352,10 +360,12 @@ def main():
     print("\n=== Schema & Null Counts ===")
     print(format_schema(schema, null_counts))
 
+    # 8) Print, Numeric Columns Summary
     print("\n=== Numeric Columns Summary ===")
     print(format_numeric_stats(numeric_summary))
 
-    print("\n=== Top 5 Values for Categorical Columns ===")
+    # 9) Print Top N values for categorical columns
+    print("\n=== Top N Values for Categorical Columns ===")
     print(format_top_values(top_values))
 
     print("\nDone.\n")
