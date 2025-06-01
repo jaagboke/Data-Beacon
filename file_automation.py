@@ -254,121 +254,123 @@ def scan_chunks(path, schema, chunk_size=50_000, top_k=5):
 
 
 
+# def main():
+#     #Initialise argument parser
+#     parser = argparse.ArgumentParser(
+#         description="Inspect a large CSV file (schema, row count, nulls, basic stats)."
+#     )
+#
+#     #Specify the file argument
+#     parser.add_argument("file", help="Path to CSV file to inspect")
+#     #select a preview to show the number of rows to display
+#     parser.add_argument(
+#         "--preview", "-p", type=int, default=0,
+#         help="Show first N rows (in addition to stats)."
+#     )
+#     #Specify a specific column
+#     parser.add_argument(
+#         "--column", "-c", metavar="COLNAME", default=None,
+#         help="If specified, show only stats for that column."
+#     )
+#     #Use no-scan to skip the chunked data and only print the schema & row count
+#     parser.add_argument(
+#         "--no-scan", dest="no_scan", action="store_true",
+#         help="Skip the chunked scan (will only print schema & row count)."
+#     )
+#     #Show top x value for the specified column
+#     parser.add_argument("--topN", type=int, default=5, help="Show top x value for the specified column")
+#     args = parser.parse_args()
+#
+#     #Initialise the csv path
+#     csv_path = args.file
+#     #Check if the file is not found
+#     if not os.path.isfile(csv_path):
+#         print(f"Error: file not found: {csv_path}", file=sys.stderr)
+#         sys.exit(1)
+#
+#     # 1) File info
+#     file_size = os.path.getsize(csv_path)
+#     print(f"\nFile: {csv_path}")
+#     print(f"Size: {human_readable_size(file_size)}")
+#
+#     # 2) Row count (fast)
+#     print("Counting rows...", end="", flush=True)
+#     row_count = count_rows(csv_path)
+#     print(f" {row_count:,} rows (excluding header)")
+#
+#     # 3) Infer schema & (optional) preview
+#     print("Inferring schema (first 5,000 rows)...")
+#     schema, df_head = infer_schema(csv_path, nrows=5000)
+#
+#     if args.preview > 0:
+#         print(f"\n=== Preview: first {args.preview} rows ===")
+#         print(format_preview(df_head, max_rows=args.preview))
+#
+#     # 4) If --no-scan is set, skip computing nulls & stats
+#     if args.no_scan:
+#         print("\n=== Schema (no stats, --no-scan used) ===")
+#         for col, dt in schema.items():
+#             print(f"  • {col:<30} {dt}")
+#         sys.exit(0)
+#
+#     # 5) One-pass scan
+#     print("Scanning in chunks to compute nulls & stats (may take a while)...")
+#     null_counts, numeric_summary, top_values = scan_chunks(csv_path, schema, top_k=args.topN)
+#
+#     # 6) If user specified a single column
+#     if args.column:
+#         col = args.column
+#         if col not in schema:
+#             print(f"Error: column '{col}' not found in schema.", file=sys.stderr)
+#             sys.exit(1)
+#         dtype = schema[col]
+#         n_null = null_counts.get(col, 0)
+#         print(f"\n=== Stats for column '{col}' (dtype={dtype}) ===")
+#         print(f"  Null count: {n_null:,}")
+#         if dtype.startswith(("int", "float")):
+#             stats = numeric_summary[col]
+#             mn = stats["min"]
+#             mx = stats["max"]
+#             mean = stats["mean"]
+#             print(f"  Min:  {mn if mn is not None else '-'}")
+#             print(f"  Max:  {mx if mx is not None else '-'}")
+#             print(f"  Mean: {mean if mean is not None else '-'}")
+#             hist = stats["histogram"]
+#             if hist:
+#                 print("\n  Histogram (up to first 5 bins):")
+#                 for bin_info in hist[:5]:
+#                     bs = bin_info["bin_start"]
+#                     be = bin_info["bin_end"]
+#                     cnt = bin_info["count"]
+#                     print(f"    [{bs:.4g}, {be:.4g}) → {cnt:,}")
+#                 if len(hist) > 5:
+#                     print("    ...")
+#         else:
+#             vals = top_values.get(col, [])
+#             print("\n  Top values:")
+#             if not vals:
+#                 print("    (no non-null values found)")
+#             else:
+#                 for val, cnt in vals:
+#                     vstr = val if len(str(val)) <= 40 else str(val)[:37] + "..."
+#                     print(f"    {vstr:<40} {cnt:,}")
+#         sys.exit(0)
+#
+#     # 7) Otherwise, print full summary
+#     print("\n=== Schema & Null Counts ===")
+#     print(format_schema(schema, null_counts))
+#
+#     # 8) Print, Numeric Columns Summary
+#     print("\n=== Numeric Columns Summary ===")
+#     print(format_numeric_stats(numeric_summary))
+#
+#     # 9) Print Top N values for categorical columns
+#     print("\n=== Top N Values for Categorical Columns ===")
+#     print(format_top_values(top_values))
+#
+#     print("\nDone.\n")
 def main():
-    #Initialise argument parser
-    parser = argparse.ArgumentParser(
-        description="Inspect a large CSV file (schema, row count, nulls, basic stats)."
-    )
-
-    #Specify the file argument
-    parser.add_argument("file", help="Path to CSV file to inspect")
-    #select a preview to show the number of rows to display
-    parser.add_argument(
-        "--preview", "-p", type=int, default=0,
-        help="Show first N rows (in addition to stats)."
-    )
-    #Specify a specific column
-    parser.add_argument(
-        "--column", "-c", metavar="COLNAME", default=None,
-        help="If specified, show only stats for that column."
-    )
-    #Use no-scan to skip the chunked data and only print the schema & row count
-    parser.add_argument(
-        "--no-scan", dest="no_scan", action="store_true",
-        help="Skip the chunked scan (will only print schema & row count)."
-    )
-    #Show top x value for the specified column
-    parser.add_argument("--topN", type=int, default=5, help="Show top x value for the specified column")
-    args = parser.parse_args()
-
-    #Initialise the csv path
-    csv_path = args.file
-    #Check if the file is not found
-    if not os.path.isfile(csv_path):
-        print(f"Error: file not found: {csv_path}", file=sys.stderr)
-        sys.exit(1)
-
-    # 1) File info
-    file_size = os.path.getsize(csv_path)
-    print(f"\nFile: {csv_path}")
-    print(f"Size: {human_readable_size(file_size)}")
-
-    # 2) Row count (fast)
-    print("Counting rows...", end="", flush=True)
-    row_count = count_rows(csv_path)
-    print(f" {row_count:,} rows (excluding header)")
-
-    # 3) Infer schema & (optional) preview
-    print("Inferring schema (first 5,000 rows)...")
-    schema, df_head = infer_schema(csv_path, nrows=5000)
-
-    if args.preview > 0:
-        print(f"\n=== Preview: first {args.preview} rows ===")
-        print(format_preview(df_head, max_rows=args.preview))
-
-    # 4) If --no-scan is set, skip computing nulls & stats
-    if args.no_scan:
-        print("\n=== Schema (no stats, --no-scan used) ===")
-        for col, dt in schema.items():
-            print(f"  • {col:<30} {dt}")
-        sys.exit(0)
-
-    # 5) One-pass scan
-    print("Scanning in chunks to compute nulls & stats (may take a while)...")
-    null_counts, numeric_summary, top_values = scan_chunks(csv_path, schema, top_k=args.topN)
-
-    # 6) If user specified a single column
-    if args.column:
-        col = args.column
-        if col not in schema:
-            print(f"Error: column '{col}' not found in schema.", file=sys.stderr)
-            sys.exit(1)
-        dtype = schema[col]
-        n_null = null_counts.get(col, 0)
-        print(f"\n=== Stats for column '{col}' (dtype={dtype}) ===")
-        print(f"  Null count: {n_null:,}")
-        if dtype.startswith(("int", "float")):
-            stats = numeric_summary[col]
-            mn = stats["min"]
-            mx = stats["max"]
-            mean = stats["mean"]
-            print(f"  Min:  {mn if mn is not None else '-'}")
-            print(f"  Max:  {mx if mx is not None else '-'}")
-            print(f"  Mean: {mean if mean is not None else '-'}")
-            hist = stats["histogram"]
-            if hist:
-                print("\n  Histogram (up to first 5 bins):")
-                for bin_info in hist[:5]:
-                    bs = bin_info["bin_start"]
-                    be = bin_info["bin_end"]
-                    cnt = bin_info["count"]
-                    print(f"    [{bs:.4g}, {be:.4g}) → {cnt:,}")
-                if len(hist) > 5:
-                    print("    ...")
-        else:
-            vals = top_values.get(col, [])
-            print("\n  Top values:")
-            if not vals:
-                print("    (no non-null values found)")
-            else:
-                for val, cnt in vals:
-                    vstr = val if len(str(val)) <= 40 else str(val)[:37] + "..."
-                    print(f"    {vstr:<40} {cnt:,}")
-        sys.exit(0)
-
-    # 7) Otherwise, print full summary
-    print("\n=== Schema & Null Counts ===")
-    print(format_schema(schema, null_counts))
-
-    # 8) Print, Numeric Columns Summary
-    print("\n=== Numeric Columns Summary ===")
-    print(format_numeric_stats(numeric_summary))
-
-    # 9) Print Top N values for categorical columns
-    print("\n=== Top N Values for Categorical Columns ===")
-    print(format_top_values(top_values))
-
-    print("\nDone.\n")
+    pass
 
 if __name__ == "__main__":
     main()
