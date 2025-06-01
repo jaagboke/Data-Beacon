@@ -106,7 +106,10 @@ The function calls the head and hides the index column
 def format_preview(df, max_rows=10):
     if df.empty:
         return "(no data to preview)\n"
-    return df.head(max_rows).to_string(index=False) + "\n"
+    else:
+        data_dict = df.head(max_rows)
+        data_dict = pd.DataFrame(data_dict)
+        return data_dict
 
 
 """
@@ -205,7 +208,7 @@ def scan_chunks(path, schema, chunk_size=50_000, top_k=5):
                 continue
             cat_counters[col].update(series.values)
 
-    # AFTER READING ALL CHUNKS → BUILD FINAL SUMMARIES
+    """Building Final Summary"""
 
     # A) Numeric summary
     numeric_summary = {}
@@ -269,6 +272,7 @@ def main():
         "--no-scan", dest="no_scan", action="store_true",
         help="Skip the chunked scan (will only print schema & row count)."
     )
+    parser.add_argument("--topN", type=int, default=5, help="Show top x value for the specified column")
     args = parser.parse_args()
 
     csv_path = args.file
@@ -303,7 +307,7 @@ def main():
 
     # 5) One-pass scan
     print("Scanning in chunks to compute nulls & stats (may take a while)...")
-    null_counts, numeric_summary, top_values = scan_chunks(csv_path, schema)
+    null_counts, numeric_summary, top_values = scan_chunks(csv_path, schema, top_k=args.topN)
 
     # 6) If user asked for a single column
     if args.column:
